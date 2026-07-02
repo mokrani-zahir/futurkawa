@@ -92,6 +92,28 @@ Toutes les API distantes suivent la même structure, documentée dans [`swagger.
 { "zone": "brazil", "lot": "dht22-t1", "value": 23.6, "timestamp": 1782894384 }
 ```
 
+## Tests (backend)
+
+```bash
+./backend/run-tests.sh                              # suite complète (bash/Git Bash)
+./backend/run-tests.sh --filter=AlertServiceTest     # un fichier/test précis
+```
+
+```powershell
+.\backend\run-tests.ps1                              # suite complète (PowerShell)
+.\backend\run-tests.ps1 --filter=AlertServiceTest
+```
+
+Le conteneur `laravel` démarre avec les identifiants de la base de **développement**
+injectés comme variables d'environnement réelles (`env_file: .env`). Ni un fichier
+`.env.testing`, ni les surcharges `<env>` de `phpunit.xml` ne peuvent à eux seuls
+rediriger la connexion dans ce contexte (immutabilité de Dotenv, et PHPUnit
+n'écrit pas dans `$_SERVER`). `run-tests.sh` contourne ça en passant les
+surcharges directement à `docker compose exec -e ...`, et fait tourner la suite
+contre une base dédiée `futurekawa_test` (créée automatiquement par
+`docker-entrypoint.sh` au démarrage du conteneur), qui reste totalement isolée
+des données de développement.
+
 ## Sécurité
 
 - Ne jamais commiter `.env` (déjà exclu via `.gitignore`) — il contient des secrets réels une fois configuré localement.

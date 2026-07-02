@@ -42,10 +42,14 @@ COPY app/                       app/
 RUN rm -rf database/migrations/*
 COPY database/migrations/       database/migrations/
 COPY database/seeders/          database/seeders/
+COPY database/factories/        database/factories/
 COPY routes/api.php             routes/api.php
 COPY bootstrap/app.php          bootstrap/app.php
 COPY resources/views/           resources/views/
+COPY tests/                     tests/
+COPY phpunit.xml                phpunit.xml
 COPY .env.example               .env.example
+COPY .env.testing               .env.testing
 
 RUN composer dump-autoload --optimize --no-interaction
 

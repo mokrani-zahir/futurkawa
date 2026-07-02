@@ -21,10 +21,14 @@ services:
       - ./backend/app:/var/www/html/app
       - ./backend/database/migrations:/var/www/html/database/migrations
       - ./backend/database/seeders:/var/www/html/database/seeders
+      - ./backend/database/factories:/var/www/html/database/factories
       - ./backend/routes:/var/www/html/routes
       - ./backend/bootstrap/app.php:/var/www/html/bootstrap/app.php
       - ./backend/resources/views:/var/www/html/resources/views
       - ./backend/config/futurekawa.php:/var/www/html/config/futurekawa.php
+      - ./backend/tests:/var/www/html/tests
+      - ./backend/phpunit.xml:/var/www/html/phpunit.xml
+      - ./backend/.env.testing:/var/www/html/.env.testing
       # Persist logs and uploaded files across restarts
       - storage_data:/var/www/html/storage
     env_file:

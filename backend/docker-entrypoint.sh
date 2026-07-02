@@ -20,6 +20,27 @@ fi
 # Queue workers and the scheduler skip this block to avoid re-running
 # migrations against already-created tables.
 if [ "$1" = "php-fpm" ]; then
+    # Create the dedicated test database (used by `php artisan test`) if it
+    # doesn't exist yet. Migrations for it are run on-demand by RefreshDatabase
+    # in the test suite, not here.
+    php -r '
+        try {
+            $pdo = new PDO(
+                "pgsql:host=" . getenv("DB_HOST") . ";port=" . getenv("DB_PORT") . ";dbname=" . getenv("DB_DATABASE"),
+                getenv("DB_USERNAME"),
+                getenv("DB_PASSWORD")
+            );
+            $testDb = getenv("DB_DATABASE") . "_test";
+            $stmt = $pdo->prepare("SELECT 1 FROM pg_database WHERE datname = ?");
+            $stmt->execute([$testDb]);
+            if (! $stmt->fetch()) {
+                $pdo->exec("CREATE DATABASE \"$testDb\"");
+            }
+        } catch (Throwable $e) {
+            fwrite(STDERR, "Skipping test database creation: {$e->getMessage()}\n");
+        }
+    ' || true
+
     php artisan migrate --force --no-interaction
     php artisan db:seed --class=AdminUserSeeder --force --no-interaction
     php artisan config:cache --no-interaction
