@@ -114,6 +114,17 @@ contre une base dédiée `futurekawa_test` (créée automatiquement par
 `docker-entrypoint.sh` au démarrage du conteneur), qui reste totalement isolée
 des données de développement.
 
+## Tests (frontend)
+
+```bash
+docker compose exec frontend npm test                                    # suite complète (Vitest)
+docker compose exec frontend npx vitest run src/context/AuthContext.test.jsx  # un fichier précis
+```
+
+Tests unitaires (`services/`, `hooks/`) et d'intégration (`context/`, `components/`, `pages/`)
+via Vitest + React Testing Library. Les appels API sont mockés (`vi.mock`), donc aucune
+requête réelle n'est envoyée aux conteneurs `laravel`/`postgres`.
+
 ## Sécurité
 
 - Ne jamais commiter `.env` (déjà exclu via `.gitignore`) — il contient des secrets réels une fois configuré localement.
