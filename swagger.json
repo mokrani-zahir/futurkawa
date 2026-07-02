@@ -1,0 +1,496 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Zone de brazil",
+        "version": "1.0.0",
+        "description": "API de la zone de brazil"
+    },
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        }
+    },
+    "servers": [
+        {
+            "url": "http://localhost:1880/",
+            "description": "Local server"
+        }
+    ],
+    "paths": {
+        "/api/v1/lot": {
+            "get": {
+                "summary": "Récupérer les capteurs",
+                "description": "Cet endpoint permet de récupérer la liste des capteurs enregistrés dans le système.",
+                "tags": [
+                    "Capteur"
+                ],
+                "deprecated": false,
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "parameters": [],
+                "requestBody": {},
+                "responses": {
+                    "200": {
+                        "description": "No description",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "nom": {
+                                            "type": "string",
+                                            "name": "nom",
+                                            "propertyRow": true
+                                        },
+                                        "type": {
+                                            "type": "string",
+                                            "name": "type",
+                                            "propertyRow": true
+                                        },
+                                        "max": {
+                                            "type": "string",
+                                            "name": "max",
+                                            "propertyRow": true
+                                        },
+                                        "min": {
+                                            "type": "string",
+                                            "name": "min",
+                                            "propertyRow": true
+                                        },
+                                        "description": {
+                                            "type": "string",
+                                            "name": "description",
+                                            "propertyRow": true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/lot/{lot}": {
+            "get": {
+                "summary": "Récupérer les mesures d'un capteur",
+                "description": "Retourne la dernière valeur de température enregistrée pour un lot donné.",
+                "tags": [
+                    "Capteur"
+                ],
+                "deprecated": false,
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "lot",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Donner le nom du capteur"
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "number"
+                        },
+                        "description": "Ajouter une limite du nombre de données à récupérer (par défaut : 10)"
+                    },
+                    {
+                        "name": "form",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Date et heure de début pour filtrer les données. (ex: 2026-06-13T00:00:00)"
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Date et heure de fin pour filtrer les données. (ex: 2026-06-13T00:00:00)"
+                    }
+                ],
+                "requestBody": {},
+                "responses": {
+                    "": {
+                        "description": "No description",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "id": {
+                                            "type": "number"
+                                        },
+                                        "nom": {
+                                            "type": "string"
+                                        },
+                                        "value": {
+                                            "type": "number"
+                                        },
+                                        "date": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/alert": {
+            "get": {
+                "summary": "Récupérer les alerts",
+                "description": "Cet endpoint permet de récupérer tous alerts enregistrés dans le système.",
+                "tags": [
+                    "Alert"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "deprecated": false,
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "Ajouter une limite du nombre de données à récupérer (par défaut : 10)"
+                    },
+                    {
+                        "name": "form",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Date et heure de début pour filtrer les données. (ex: 2026-06-13T00:00:00)"
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Date et heure de fin pour filtrer les données. (ex: 2026-06-13T00:00:00)"
+                    }
+                ],
+                "requestBody": {},
+                "responses": {
+                    "200": {
+                        "description": "No description",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "id": {
+                                            "type": "number"
+                                        },
+                                        "nom": {
+                                            "type": "string"
+                                        },
+                                        "valeur": {
+                                            "type": "number"
+                                        },
+                                        "date": {
+                                            "type": "string"
+                                        },
+                                        "is_checked": {
+                                            "type": "boolean"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/alert/{lot}": {
+            "get": {
+                "summary": "Récupérer les alerts d'un capteur",
+                "description": "Cet endpoint permet de récupérer tous alerts enregistrés dans le système.",
+                "tags": [
+                    "Alert"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "deprecated": false,
+                "parameters": [
+                    {
+                        "name": "lot",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Donner le nom du capteur"
+                    }
+                ],
+                "requestBody": {},
+                "responses": {
+                    "200": {
+                        "description": "No description",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "id": {
+                                            "type": "number"
+                                        },
+                                        "nom": {
+                                            "type": "string"
+                                        },
+                                        "valeur": {
+                                            "type": "number"
+                                        },
+                                        "date": {
+                                            "type": "string"
+                                        },
+                                        "is_checked": {
+                                            "type": "boolean"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "summary": "Changer status alert",
+                "description": "Marquer une alerte comme vérifiée par un administrateur.",
+                "tags": [
+                    "Alert"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "deprecated": false,
+                "parameters": [
+                    {
+                        "name": "lot",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Donner le nom du capteur"
+                    }
+                ],
+                "requestBody": {},
+                "responses": {
+                    "200": {
+                        "description": "No description",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "nom": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/{lot}": {
+            "patch": {
+                "summary": "Changer les paramètres d’alerte",
+                "description": "Permet de modifier les valeurs qui déclenchent une alerte (ex : seuil de température, humidité, etc.).",
+                "tags": [
+                    "Alert"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "deprecated": false,
+                "parameters": [
+                    {
+                        "name": "lot",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Donner le nom du capteur"
+                    },
+                    {
+                        "name": "max",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "number"
+                        },
+                        "description": "Valeur maximale pour déclencher une alerte"
+                    },
+                    {
+                        "name": "min",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "number"
+                        },
+                        "description": "Valeur minimale pour déclencher une alerte"
+                    },
+                    {
+                        "name": "date_debut",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Date de début de référence pour le calcul de l'expiration (format YYYY-MM-DD). Si omis, la date actuelle sera utilisée lors de la mise à jour."
+                    },
+                    {
+                        "name": "duree_jours",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "number"
+                        },
+                        "description": "Durée de validité en jours à partir de la date_debut. Par défaut, 365 jours."
+                    }
+                ],
+                "requestBody": {},
+                "responses": {
+                    "200": {
+                        "description": "No description",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "capteur": {
+                                            "type": "string"
+                                        },
+                                        "max": {
+                                            "type": "number"
+                                        },
+                                        "min": {
+                                            "type": "min"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/jwt": {
+            "get": {
+                "summary": "Génération de jeton JWT",
+                "description": "Génération d’un jeton JWT (JSON Web Token) après l’authentification de l’utilisateur. Ce jeton permet de sécuriser les échanges entre le client et l’API en transportant les informations d’identification et les autorisations de manière signée et vérifiable.",
+                "tags": [
+                    "JWT"
+                ],
+                "deprecated": false,
+                "parameters": [
+                    {
+                        "name": "username",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "password",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "expiresIn",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "Durée de validité du token en secondes. Défaut : 3600 (1 heure)."
+                    }
+                ],
+                "requestBody": {},
+                "responses": {
+                    "200": {
+                        "description": "No description",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "token": {
+                                            "type": "string"
+                                        },
+                                        "expiresIn": {
+                                            "type": "integer"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "No description",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
