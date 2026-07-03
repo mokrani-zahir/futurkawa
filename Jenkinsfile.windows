@@ -1,0 +1,246 @@
+// CI/CD pipeline for FutureKawa — Windows agent variant.
+//
+// Same stages as the main Jenkinsfile, but every step uses `powershell`
+// instead of `sh` (Windows agents don't have bash), plus a few command
+// translations (no seq/test -f loops, no chmod, etc.).
+//
+// Prerequisites on the Jenkins agent: Windows + Docker Desktop (Docker
+// Compose v2 comes bundled) reachable from the account running the agent.
+//
+// IMPORTANT — PowerShell exit codes: unlike `sh`, the Jenkins `powershell`
+// step does NOT automatically fail the build when a native command (docker,
+// npm, ...) returns a non-zero exit code — only a terminating PowerShell
+// error does that. Every meaningful command below is followed by
+// `if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }` for exactly that reason;
+// don't drop it when editing.
+//
+// Point `agent { label 'windows' }` at whatever your actual Windows node's
+// label is in Jenkins (Manage Jenkins > Nodes).
+//
+// Required Jenkins plugins for the reports produced below:
+//   - JUnit Plugin (bundled with modern Jenkins) — PHPUnit/Vitest results.
+//   - Warnings Next Generation Plugin — PHPStan/ESLint issues (phpStan()/esLint() parsers).
+//   - OWASP Dependency-Check Plugin — vulnerability trend graph.
+
+pipeline {
+    agent { label 'windows' }
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+    }
+
+    environment {
+        COMPOSE_PROJECT_NAME = 'futurekawa'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                // git branch: 'master', url: 'https://github.com/mokrani-zahir/futurkawa.git'
+                checkout scm
+                // Private repo? Add credentialsId: '<jenkins-credential-id>'
+                // (configure it under Manage Jenkins > Credentials first).
+            }
+        }
+
+        stage('Prepare .env') {
+            steps {
+                // CI only needs a working environment, not real secrets —
+                // .env.example's placeholder values are enough (APP_KEY is
+                // generated on first boot by backend/docker-entrypoint.sh).
+                powershell 'if (-not (Test-Path .env)) { Copy-Item .env.example .env }'
+            }
+        }
+
+        stage('Build images') {
+            steps {
+                powershell '''
+                    docker compose build
+                    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                '''
+            }
+        }
+
+        stage('CI') {
+            stages {
+                stage('Start stack') {
+                    steps {
+                        // depends_on/healthcheck in docker-compose.yml already
+                        // gates laravel on postgres being healthy.
+                        powershell '''
+                            docker compose up -d postgres redis laravel frontend
+                            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                        '''
+                        powershell '''
+                            Write-Host "Waiting for the laravel container to finish booting (migrate + config:cache)..."
+                            $ready = $false
+                            for ($i = 0; $i -lt 30; $i++) {
+                                docker compose exec -T laravel test -f bootstrap/cache/config.php
+                                if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+                                Start-Sleep -Seconds 2
+                            }
+                            if (-not $ready) {
+                                Write-Host "Timed out waiting for laravel to boot." -ForegroundColor Red
+                                docker compose logs laravel
+                                exit 1
+                            }
+                            Write-Host "laravel ready."
+                        '''
+                        // package.json changes between builds aren't picked up by
+                        // the named node_modules volume automatically — sync it.
+                        // (backend's vendor/ isn't volume-mounted, so no equivalent
+                        // step is needed there — composer deps live in the image.)
+                        powershell '''
+                            docker compose exec -T frontend npm install
+                            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                        '''
+                    }
+                }
+
+                stage('Code quality') {
+                    parallel {
+                        stage('PHPStan (backend)') {
+                            steps {
+                                // checkstyle format feeds the Warnings Next Generation
+                                // plugin (see post block below). Exit code still reflects
+                                // whether PHPStan found errors, so the stage still fails
+                                // the same way it did before.
+                                powershell '''
+                                    docker compose exec -T laravel vendor/bin/phpstan analyse --no-progress --memory-limit=512M --error-format=checkstyle | Out-File -FilePath backend/phpstan-checkstyle.xml -Encoding utf8
+                                    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                                '''
+                            }
+                        }
+                        stage('ESLint (frontend)') {
+                            steps {
+                                powershell '''
+                                    docker compose exec -T frontend npm run lint -- -f checkstyle -o eslint-checkstyle.xml
+                                    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                                '''
+                            }
+                        }
+                    }
+                    post {
+                        always {
+                            recordIssues(
+                                tools: [
+                                    phpStan(pattern: 'backend/phpstan-checkstyle.xml'),
+                                    esLint(pattern: 'frontend/eslint-checkstyle.xml')
+                                ],
+                                qualityGates: [[threshold: 1, type: 'TOTAL', unstable: false]]
+                            )
+                        }
+                    }
+                }
+
+                stage('Dependency check (OWASP)') {
+                    steps {
+                        // Backend's composer.lock only exists inside the container
+                        // (Laravel is scaffolded fresh at image build time — see
+                        // backend/Dockerfile — so it's never on the host/workspace).
+                        // Pull it out so Dependency-Check can see it too; frontend's
+                        // package-lock.json is already tracked in git.
+                        powershell '''
+                            docker compose cp laravel:/var/www/html/composer.json backend/composer.json
+                            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                            docker compose cp laravel:/var/www/html/composer.lock backend/composer.lock
+                            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                        '''
+                        // First run downloads the NVD CVE database (can be slow /
+                        // rate-limited without a key). If you hit that, get a free
+                        // key at https://nvd.nist.gov/developers/request-an-api-key,
+                        // store it as a Jenkins secret text credential, and add
+                        // `withCredentials([...])` + `--nvdApiKey $env:NVD_API_KEY`
+                        // here. The scan-data volume persists the DB across builds
+                        // either way.
+                        powershell '''
+                            New-Item -ItemType Directory -Force -Path dependency-check-report | Out-Null
+                            docker run --rm `
+                                -v "${env:WORKSPACE}:/src" `
+                                -v dependency-check-data:/usr/share/dependency-check/data `
+                                owasp/dependency-check:latest `
+                                --scan /src `
+                                --format HTML --format XML `
+                                --project "FutureKawa" `
+                                --out /src/dependency-check-report `
+                                --exclude "**/node_modules/**" `
+                                --exclude "**/vendor/**" `
+                                --exclude "**/dependency-check-report/**"
+                            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                        '''
+                        // Remove the extracted files again so they don't linger as
+                        // untracked changes in the workspace between builds.
+                        powershell 'Remove-Item -Force -ErrorAction SilentlyContinue backend/composer.json, backend/composer.lock'
+                    }
+                    post {
+                        always {
+                            archiveArtifacts artifacts: 'dependency-check-report/**', allowEmptyArchive: true
+                            // Parses the XML report into a vulnerability trend graph.
+                            dependencyCheckPublisher pattern: 'dependency-check-report/dependency-check-report.xml'
+                        }
+                    }
+                }
+
+                stage('Backend tests') {
+                    steps {
+                        powershell '''
+                            .\\backend\\run-tests.ps1 --log-junit=storage/logs/junit.xml
+                            $testExitCode = $LASTEXITCODE
+                            # storage/ is a named volume, not bind-mounted, so the report
+                            # has to be pulled out of the container explicitly. Its own
+                            # exit code is deliberately ignored below: $testExitCode was
+                            # already captured, so a missing/failed copy can't mask a
+                            # test failure or fake a pass.
+                            docker compose cp laravel:/var/www/html/storage/logs/junit.xml backend/junit.xml
+                            exit $testExitCode
+                        '''
+                    }
+                }
+
+                stage('Frontend tests') {
+                    steps {
+                        powershell '''
+                            docker compose exec -T frontend npm test -- --reporter=junit --outputFile=junit.xml
+                            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                        '''
+                    }
+                }
+            }
+            post {
+                always {
+                    junit testResults: 'backend/junit.xml, frontend/junit.xml', allowEmptyResults: true
+                    // Ephemeral CI stack — always torn down, pass or fail, so
+                    // each build starts from a clean slate.
+                    powershell 'docker compose down -v'
+                }
+            }
+        }
+
+        stage('Deploy (local)') {
+            when {
+                branch 'master'
+            }
+            steps {
+                // Stand-in for a real deploy target. Swap this step for a
+                // Terraform apply / Ansible playbook / kubectl rollout once
+                // real infrastructure exists.
+                // powershell '''
+                //     docker compose up -d --build
+                //     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                // '''
+                powershell 'echo "Envoyer au terraform, ansible et k8s"'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline succeeded.'
+        }
+        failure {
+            echo 'Pipeline failed — see the failing stage log above.'
+        }
+    }
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Line } from 'react-chartjs-2';
 import { useWebSocket } from '../../context/WebSocketContext';
 import { fetchSensorHistory } from '../../services/externalApi';

@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Carbon\Carbon;
 
+/**
+ * @property \Illuminate\Support\Carbon $storage_start_date
+ */
 class Batch extends Model
 {
     use HasFactory, HasUuids;

@@ -28,6 +28,7 @@ services:
       - ./backend/config/futurekawa.php:/var/www/html/config/futurekawa.php
       - ./backend/tests:/var/www/html/tests
       - ./backend/phpunit.xml:/var/www/html/phpunit.xml
+      - ./backend/phpstan.neon:/var/www/html/phpstan.neon
       - ./backend/.env.testing:/var/www/html/.env.testing
       # Persist logs and uploaded files across restarts
       - storage_data:/var/www/html/storage

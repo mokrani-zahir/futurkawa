@@ -1,0 +1,23 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app
+
+    level: 5
+
+    ignoreErrors:
+        # JsonResource proxies property access to the wrapped model via
+        # __get(); Larastan doesn't (yet) resolve those magic properties.
+        # Well-known/accepted limitation for API Resource classes.
+        -
+            identifier: property.notFound
+            path: app/Http/Resources/*
+
+        # Defensive null-check on RequestException::$response — statically
+        # always non-null per Guzzle's type declarations, but kept as a
+        # guard against edge cases (e.g. mocked exceptions in tests).
+        -
+            identifier: booleanAnd.leftAlwaysTrue
+            path: app/Services/ExternalApiService.php

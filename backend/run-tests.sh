@@ -26,11 +26,13 @@ ENV_OVERRIDES="-e APP_ENV=testing \
 # The running php-fpm process serves production-tuned config from a cached
 # file (config:cache, done at container boot); clear it so this exec picks up
 # the overrides above, then restore the cache for the live app afterwards.
-docker compose exec $ENV_OVERRIDES laravel php artisan config:clear
+# -T disables pseudo-TTY allocation — required in non-interactive shells
+# (CI runners) which don't have one to attach.
+docker compose exec -T $ENV_OVERRIDES laravel php artisan config:clear
 
 status=0
-docker compose exec $ENV_OVERRIDES laravel php artisan test "$@" || status=$?
+docker compose exec -T $ENV_OVERRIDES laravel php artisan test "$@" || status=$?
 
-docker compose exec laravel php artisan config:cache >/dev/null
+docker compose exec -T laravel php artisan config:cache >/dev/null
 
 exit $status

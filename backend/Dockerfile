@@ -33,6 +33,12 @@ RUN composer require \
     --no-interaction \
     --no-scripts
 
+RUN composer require --dev \
+    phpstan/phpstan:^2.0 \
+    larastan/larastan:^3.0 \
+    --no-interaction \
+    --no-scripts
+
 # ── Final image: overlay our application code ────────────────────────────────
 FROM builder AS app
 
@@ -48,6 +54,7 @@ COPY bootstrap/app.php          bootstrap/app.php
 COPY resources/views/           resources/views/
 COPY tests/                     tests/
 COPY phpunit.xml                phpunit.xml
+COPY phpstan.neon               phpstan.neon
 COPY .env.example               .env.example
 COPY .env.testing               .env.testing
 

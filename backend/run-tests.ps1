@@ -32,11 +32,13 @@ $envArgs = @(
 # The running php-fpm process serves production-tuned config from a cached
 # file (config:cache, done at container boot); clear it so this exec picks up
 # the overrides above, then restore the cache for the live app afterwards.
-docker compose exec @envArgs laravel php artisan config:clear
+# -T disables pseudo-TTY allocation — required in non-interactive shells
+# (CI runners) which don't have one to attach.
+docker compose exec -T @envArgs laravel php artisan config:clear
 
-docker compose exec @envArgs laravel php artisan test @TestArgs
+docker compose exec -T @envArgs laravel php artisan test @TestArgs
 $testExitCode = $LASTEXITCODE
 
-docker compose exec laravel php artisan config:cache | Out-Null
+docker compose exec -T laravel php artisan config:cache | Out-Null
 
 exit $testExitCode

@@ -30,7 +30,7 @@ export function WebSocketProvider({ children }) {
     return listeners.current[zoneId];
   };
 
-  const connect = useCallback((zoneId, rawWsUrl, token) => {
+  const connect = useCallback((zoneId, rawWsUrl, _token) => {
     const existing = connections.current[zoneId];
     if (existing?.ws.readyState === WebSocket.OPEN) return;
 

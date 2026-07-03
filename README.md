@@ -125,6 +125,22 @@ Tests unitaires (`services/`, `hooks/`) et d'intégration (`context/`, `componen
 via Vitest + React Testing Library. Les appels API sont mockés (`vi.mock`), donc aucune
 requête réelle n'est envoyée aux conteneurs `laravel`/`postgres`.
 
+## Qualité de code
+
+```bash
+docker compose exec laravel vendor/bin/phpstan analyse --memory-limit=512M   # backend (Larastan, niveau 5)
+docker compose exec frontend npm run lint                                    # frontend (ESLint)
+```
+
+## CI/CD (Jenkins)
+
+Le [`Jenkinsfile`](Jenkinsfile) à la racine décrit le pipeline : build des images, PHPStan,
+ESLint, scan de dépendances OWASP Dependency-Check, puis les suites de tests backend et
+frontend contre une stack Docker Compose éphémère (détruite après chaque run, succès ou
+échec). Le déploiement (stage `Deploy (local)`) relance simplement `docker compose up
+--build` en local pour l'instant — prérequis : Docker + Docker Compose v2 sur l'agent
+Jenkins. Voir les commentaires en tête du fichier pour le détail de chaque étape.
+
 ## Sécurité
 
 - Ne jamais commiter `.env` (déjà exclu via `.gitignore`) — il contient des secrets réels une fois configuré localement.
