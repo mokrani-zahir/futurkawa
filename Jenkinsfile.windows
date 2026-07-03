@@ -23,7 +23,7 @@
 //   - OWASP Dependency-Check Plugin — vulnerability trend graph.
 
 pipeline {
-    agent { label 'windows' }
+    agent any
 
     options {
         disableConcurrentBuilds()
