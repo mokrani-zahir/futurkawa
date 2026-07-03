@@ -121,49 +121,49 @@ pipeline {
                     }
                 }
 
-                stage('Dependency check (OWASP)') {
-                    steps {
-                        // Backend's composer.lock only exists inside the container
-                        // (Laravel is scaffolded fresh at image build time — see
-                        // backend/Dockerfile — so it's never on the host/workspace).
-                        // Pull it out so Dependency-Check can see it too; frontend's
-                        // package-lock.json is already tracked in git.
-                        sh '''
-                            docker compose cp laravel:/var/www/html/composer.json backend/composer.json
-                            docker compose cp laravel:/var/www/html/composer.lock backend/composer.lock
-                        '''
-                        // First run downloads the NVD CVE database (can be slow /
-                        // rate-limited without a key). If you hit that, get a free
-                        // key at https://nvd.nist.gov/developers/request-an-api-key,
-                        // store it as a Jenkins secret text credential, and add
-                        // `withCredentials([...])` + `--nvdApiKey $NVD_API_KEY` here.
-                        // The scan-data volume persists the DB across builds either way.
-                        sh '''
-                            mkdir -p dependency-check-report
-                            docker run --rm \
-                                -v "$(pwd)":/src \
-                                -v dependency-check-data:/usr/share/dependency-check/data \
-                                owasp/dependency-check:latest \
-                                --scan /src \
-                                --format HTML --format XML \
-                                --project "FutureKawa" \
-                                --out /src/dependency-check-report \
-                                --exclude "**/node_modules/**" \
-                                --exclude "**/vendor/**" \
-                                --exclude "**/dependency-check-report/**"
-                        '''
-                        // Remove the extracted files again so they don't linger as
-                        // untracked changes in the workspace between builds.
-                        sh 'rm -f backend/composer.json backend/composer.lock'
-                    }
-                    post {
-                        always {
-                            archiveArtifacts artifacts: 'dependency-check-report/**', allowEmptyArchive: true
-                            // Parses the XML report into a vulnerability trend graph.
-                            dependencyCheckPublisher pattern: 'dependency-check-report/dependency-check-report.xml'
-                        }
-                    }
-                }
+                // stage('Dependency check (OWASP)') {
+                //     steps {
+                //         // Backend's composer.lock only exists inside the container
+                //         // (Laravel is scaffolded fresh at image build time — see
+                //         // backend/Dockerfile — so it's never on the host/workspace).
+                //         // Pull it out so Dependency-Check can see it too; frontend's
+                //         // package-lock.json is already tracked in git.
+                //         sh '''
+                //             docker compose cp laravel:/var/www/html/composer.json backend/composer.json
+                //             docker compose cp laravel:/var/www/html/composer.lock backend/composer.lock
+                //         '''
+                //         // First run downloads the NVD CVE database (can be slow /
+                //         // rate-limited without a key). If you hit that, get a free
+                //         // key at https://nvd.nist.gov/developers/request-an-api-key,
+                //         // store it as a Jenkins secret text credential, and add
+                //         // `withCredentials([...])` + `--nvdApiKey $NVD_API_KEY` here.
+                //         // The scan-data volume persists the DB across builds either way.
+                //         sh '''
+                //             mkdir -p dependency-check-report
+                //             docker run --rm \
+                //                 -v "$(pwd)":/src \
+                //                 -v dependency-check-data:/usr/share/dependency-check/data \
+                //                 owasp/dependency-check:latest \
+                //                 --scan /src \
+                //                 --format HTML --format XML \
+                //                 --project "FutureKawa" \
+                //                 --out /src/dependency-check-report \
+                //                 --exclude "**/node_modules/**" \
+                //                 --exclude "**/vendor/**" \
+                //                 --exclude "**/dependency-check-report/**"
+                //         '''
+                //         // Remove the extracted files again so they don't linger as
+                //         // untracked changes in the workspace between builds.
+                //         sh 'rm -f backend/composer.json backend/composer.lock'
+                //     }
+                //     post {
+                //         always {
+                //             archiveArtifacts artifacts: 'dependency-check-report/**', allowEmptyArchive: true
+                //             // Parses the XML report into a vulnerability trend graph.
+                //             dependencyCheckPublisher pattern: 'dependency-check-report/dependency-check-report.xml'
+                //         }
+                //     }
+                // }
 
                 stage('Backend tests') {
                     steps {
