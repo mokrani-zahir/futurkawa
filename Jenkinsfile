@@ -51,9 +51,21 @@ pipeline {
         stage('Prepare .env') {
             steps {
                 // CI only needs a working environment, not real secrets —
-                // .env.example's placeholder values are enough (APP_KEY is
-                // generated on first boot by backend/docker-entrypoint.sh).
-                sh 'test -f .env || cp .env.example .env'
+                // .env.example's placeholder values are enough, EXCEPT
+                // APP_KEY: docker-compose bakes env_file values into every
+                // container's config at creation time, including for later
+                // `docker compose exec` sessions (used by the test stages
+                // below), which never re-run backend/docker-entrypoint.sh.
+                // Leaving APP_KEY blank here means it stays blank for the
+                // whole build, no matter what the entrypoint does at boot —
+                // so generate a real key upfront, before any container exists.
+                sh '''
+                    test -f .env || cp .env.example .env
+                    if ! grep -q "^APP_KEY=base64:" .env; then
+                        KEY="base64:$(openssl rand -base64 32)"
+                        sed -i "s|^APP_KEY=.*|APP_KEY=$KEY|" .env
+                    fi
+                '''
             }
         }
 
