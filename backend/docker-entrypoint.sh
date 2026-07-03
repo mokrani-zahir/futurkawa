@@ -16,6 +16,15 @@ elif ! grep -q "^APP_KEY=base64:" /var/www/html/.env 2>/dev/null; then
     php artisan key:generate --force --no-interaction
 fi
 
+# docker-compose's env_file always sets APP_KEY in the process environment,
+# even to an empty string when the root .env leaves it blank. Laravel's
+# dotenv loader is immutable — it refuses to let the .env file override a
+# variable that's already set, blank or not — so without this, the key we
+# just wrote/synced above into .env stays invisible to the app. Re-export it
+# from the container .env so php-fpm (execed below) actually sees it.
+APP_KEY=$(grep -m1 '^APP_KEY=' /var/www/html/.env | cut -d= -f2-)
+export APP_KEY
+
 # Only the main PHP-FPM process handles migrations and cache warmup.
 # Queue workers and the scheduler skip this block to avoid re-running
 # migrations against already-created tables.
