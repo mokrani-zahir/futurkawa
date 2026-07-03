@@ -242,20 +242,21 @@ pipeline {
             }
         }
 
-        stage('Deploy (local)') {
-            when {
-                branch 'master'
-            }
-            steps {
-                // Stand-in for a real deploy target. Swap this step for a
-                // Terraform apply / Ansible playbook / kubectl rollout once
-                // real infrastructure exists.
-                // powershell '''
-                //     docker compose up -d --build
-                //     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-                // '''
-            }
-        }
+        // stage('Deploy (local)') {
+        //     when {
+        //         branch 'master'
+        //     }
+        //     steps {
+        //         // Stand-in for a real deploy target. Swap this step for a
+        //         // Terraform apply / Ansible playbook / kubectl rollout once
+        //         // real infrastructure exists.
+        //         // powershell '''
+        //         //     docker compose up -d --build
+        //         //     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        //         // '''
+        //         powershell 'echo "Envoyer au terraform, ansible et k8s"'
+        //     }
+        // }
 
         stage('Build production images') {
             // Builds the standalone images consumed by docker-compose.prod.yml
@@ -263,9 +264,9 @@ pipeline {
             // no bind mounts, frontend pre-built and served by nginx). Local
             // tags only for now; add a registry `docker push` here once one
             // exists (e.g. tag as mon-registre/futurekawa-backend:latest first).
-            // when {
-            //     branch 'master'
-            // }
+            when {
+                branch 'master'
+            }
             steps {
                 powershell '''
                     docker build -t futurekawa-backend:latest ./backend
