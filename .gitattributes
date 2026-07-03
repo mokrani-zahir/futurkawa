@@ -1,0 +1,9 @@
+# Ensure files that run inside Linux containers always keep LF endings,
+# regardless of core.autocrlf on the machine checking out the repo
+# (e.g. Windows Jenkins agents). CRLF in a shell script shebang breaks
+# `exec` with "no such file or directory" inside Alpine containers.
+* text=auto
+
+*.sh text eol=lf
+Dockerfile text eol=lf
+docker-entrypoint.sh text eol=lf
