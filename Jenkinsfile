@@ -235,9 +235,9 @@ pipeline {
             // no bind mounts, frontend pre-built and served by nginx). Local
             // tags only for now; add a registry `docker push` here once one
             // exists (e.g. tag as mon-registre/futurekawa-backend:latest first).
-            when {
-                branch 'master'
-            }
+            // when {
+            //     branch 'master'
+            // }
             steps {
                 sh 'docker build -t futurekawa-backend:latest ./backend'
                 sh 'docker build -t futurekawa-frontend:latest --target production ./frontend'
