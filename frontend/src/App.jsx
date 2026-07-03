@@ -15,26 +15,30 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <WebSocketProvider>
-          <AlertProvider>
-            <Routes>
-              <Route path="/login" element={<Login />} />
+        <Routes>
+          <Route path="/login" element={<Login />} />
 
-              <Route element={<RequireAuth />}>
-                <Route element={<AppLayout />}>
-                  <Route index element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/zones" element={<Zones />} />
-                  <Route path="/zones/:zoneId" element={<ZoneDetail />} />
-                  <Route path="/zones/:zoneId/batches/:batchId" element={<BatchDetail />} />
-                  <Route path="/alerts" element={<Alerts />} />
-                </Route>
-              </Route>
+          <Route element={<RequireAuth />}>
+            <Route
+              element={
+                <WebSocketProvider>
+                  <AlertProvider>
+                    <AppLayout />
+                  </AlertProvider>
+                </WebSocketProvider>
+              }
+            >
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/zones" element={<Zones />} />
+              <Route path="/zones/:zoneId" element={<ZoneDetail />} />
+              <Route path="/zones/:zoneId/batches/:batchId" element={<BatchDetail />} />
+              <Route path="/alerts" element={<Alerts />} />
+            </Route>
+          </Route>
 
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Routes>
-          </AlertProvider>
-        </WebSocketProvider>
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
       </AuthProvider>
     </BrowserRouter>
   );

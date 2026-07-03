@@ -27,7 +27,9 @@ api.interceptors.response.use(
   (err) => {
     if (err.response?.status === 401 && !err.config._isRetry) {
       localStorage.removeItem('auth_token');
-      window.location.href = '/login';
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(err);
   }
