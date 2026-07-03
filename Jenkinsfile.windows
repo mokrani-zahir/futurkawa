@@ -232,8 +232,12 @@ pipeline {
                 always {
                     junit testResults: 'backend/junit.xml, frontend/junit.xml', allowEmptyResults: true
                     // Ephemeral CI stack — always torn down, pass or fail, so
-                    // each build starts from a clean slate.
-                    powershell 'docker compose down -v'
+                    // each build starts from a clean slate. --rmi local also
+                    // removes the images built by `docker compose build`
+                    // above (laravel, frontend:dev) — they're CI-only, not
+                    // reused by the independent `docker build` in
+                    // 'Build production images' further down.
+                    powershell 'docker compose down -v --rmi local'
                 }
             }
         }
