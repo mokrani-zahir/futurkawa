@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+// window.__ENV__.API_URL is injected at container startup (see
+// frontend/docker-entrypoint.sh) from the frontend's own .env file, so the
+// same built image can point at any backend without a rebuild. Falls back to
+// the relative path when unset (dev server, or prod behind a shared proxy).
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: window.__ENV__?.API_URL || '/api',
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',

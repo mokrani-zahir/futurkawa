@@ -1,6 +1,8 @@
 # Environment files (contain secrets — copy from .env.example instead)
 .env
+.env.production
 backend/.env
+frontend/.env.production
 
 # Backend (Laravel) — scaffolded fresh at image build time, see backend/Dockerfile
 backend/vendor/

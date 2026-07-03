@@ -17,6 +17,11 @@
 // Point `agent { label 'windows' }` at whatever your actual Windows node's
 // label is in Jenkins (Manage Jenkins > Nodes).
 //
+// Also builds futurekawa-backend:latest / futurekawa-frontend:latest at the
+// end (see 'Build production images' below) — the images consumed by
+// docker-compose.prod.yml. Local tags only for now; add a `docker push`
+// once a registry exists.
+//
 // Required Jenkins plugins for the reports produced below:
 //   - JUnit Plugin (bundled with modern Jenkins) — PHPUnit/Vitest results.
 //   - Warnings Next Generation Plugin — PHPStan/ESLint issues (phpStan()/esLint() parsers).
@@ -246,6 +251,27 @@ pipeline {
                 //     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                 // '''
                 powershell 'echo "Envoyer au terraform, ansible et k8s"'
+            }
+        }
+
+        stage('Build production images') {
+            // Builds the standalone images consumed by docker-compose.prod.yml
+            // (image: futurekawa-backend:latest / futurekawa-frontend:latest —
+            // no bind mounts, frontend pre-built and served by nginx). Local
+            // tags only for now; add a registry `docker push` here once one
+            // exists (e.g. tag as mon-registre/futurekawa-backend:latest first).
+            when {
+                branch 'master'
+            }
+            steps {
+                powershell '''
+                    docker build -t futurekawa-backend:latest ./backend
+                    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                '''
+                powershell '''
+                    docker build -t futurekawa-frontend:latest --target production ./frontend
+                    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                '''
             }
         }
     }

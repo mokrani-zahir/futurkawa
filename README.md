@@ -132,6 +132,34 @@ docker compose exec laravel vendor/bin/phpstan analyse --memory-limit=512M   # b
 docker compose exec frontend npm run lint                                    # frontend (ESLint)
 ```
 
+## Déploiement en production (images pré-construites)
+
+`docker-compose.yml` build les images à partir des sources (mode dev : Vite en hot-reload,
+code Laravel bind-mounté). `docker-compose.prod.yml` fait tourner le même stack à partir
+d'images déjà construites, sans bind mount — c'est ce que consomme le stage Jenkins
+`Build production images`.
+
+Le frontend y est **indépendant du backend** : c'est une image nginx autonome (build Vite
+statique) qui ne connaît l'URL du backend qu'au démarrage du conteneur, via son propre
+fichier d'env (`frontend/.env.production`, variable `API_URL`) — jamais via les identifiants
+du backend, et sans avoir besoin d'être rebuild pour pointer vers un autre backend.
+
+```bash
+# 1. Construire les images
+docker build -t futurekawa-backend:latest  ./backend
+docker build -t futurekawa-frontend:latest --target production ./frontend
+
+# 2. Configurer les env files (jamais commités)
+cp .env.production.example .env.production
+cp frontend/.env.production.example frontend/.env.production
+
+# 3. Démarrer le stack (--env-file requis en plus du env_file de chaque service :
+#    il permet à docker compose de résoudre les ${DB_*} du fichier compose lui-même)
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+```
+
+Backend sur **http://localhost:8000**, frontend sur **http://localhost:8080**.
+
 ## CI/CD (Jenkins)
 
 Le [`Jenkinsfile`](Jenkinsfile) à la racine décrit le pipeline : build des images, PHPStan,

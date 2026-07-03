@@ -1,0 +1,97 @@
+# Production-style stack: runs from already-built images (futurekawa-backend,
+# futurekawa-frontend) instead of building from source, and uses separate
+# env files per service so the frontend never has access to backend secrets.
+#
+# Build the images first (or let CI/Jenkins do it):
+#   docker build -t futurekawa-backend:latest  ./backend
+#   docker build -t futurekawa-frontend:latest ./frontend --target production
+#
+# Then start the stack. --env-file is required in addition to each service's
+# env_file: it's what lets docker compose itself resolve ${DB_*} below —
+# env_file only injects variables into the containers, it does not feed
+# compose-file interpolation.
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+#
+# The frontend is intentionally independent: it talks to the backend at
+# whatever absolute URL frontend/.env.production sets (API_URL), so it can
+# just as well point at a backend running on another host entirely.
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "8000:80"
+    volumes:
+      - ./nginx/backend.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - laravel
+    restart: unless-stopped
+
+  laravel:
+    image: futurekawa-backend:latest
+    env_file:
+      - .env.production
+    volumes:
+      - storage_data:/var/www/html/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  frontend:
+    image: futurekawa-frontend:latest
+    env_file:
+      - frontend/.env.production
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+  queue:
+    image: futurekawa-backend:latest
+    command: ["php", "artisan", "queue:work", "redis", "--sleep=3", "--tries=3", "--max-time=3600"]
+    env_file:
+      - .env.production
+    volumes:
+      - storage_data:/var/www/html/storage
+    depends_on:
+      - laravel
+    restart: unless-stopped
+
+  scheduler:
+    image: futurekawa-backend:latest
+    command: ["sh", "-c", "while true; do php artisan schedule:run --no-interaction; sleep 60; done"]
+    env_file:
+      - .env.production
+    volumes:
+      - storage_data:/var/www/html/storage
+    depends_on:
+      - laravel
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-futurekawa}
+      POSTGRES_USER: ${DB_USERNAME:-futurekawa}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-futurekawa} -d ${DB_DATABASE:-futurekawa}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  storage_data:

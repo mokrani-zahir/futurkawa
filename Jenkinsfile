@@ -16,10 +16,16 @@
 //      target. When real infrastructure exists, replace this stage with
 //      Terraform (provisioning) + Ansible (config/deploy) or a Kubernetes
 //      rollout — the CI stages above stay the same either way.
+//   5. Build production images: tags futurekawa-backend:latest and
+//      futurekawa-frontend:latest (built from ./frontend --target production,
+//      the static-build-served-by-nginx stage) — the images consumed by
+//      docker-compose.prod.yml. Local tags only for now; add a `docker push`
+//      once a registry exists.
 //
-// The Deploy stage only runs on the `master` branch (this repo's default —
-// adjust if that changes) and only works as-is on a Multibranch Pipeline
-// job (env.BRANCH_NAME is unset on a plain Pipeline job).
+// The Deploy and Build-production-images stages only run on the `master`
+// branch (this repo's default — adjust if that changes) and only work as-is
+// on a Multibranch Pipeline job (env.BRANCH_NAME is unset on a plain
+// Pipeline job).
 //
 // Required Jenkins plugins for the reports below:
 //   - JUnit Plugin (bundled with modern Jenkins) — PHPUnit/Vitest results.
@@ -216,6 +222,21 @@ pipeline {
                 // Terraform apply / Ansible playbook / kubectl rollout once
                 // real infrastructure exists.
                 sh 'docker compose up -d --build'
+            }
+        }
+
+        stage('Build production images') {
+            // Builds the standalone images consumed by docker-compose.prod.yml
+            // (image: futurekawa-backend:latest / futurekawa-frontend:latest —
+            // no bind mounts, frontend pre-built and served by nginx). Local
+            // tags only for now; add a registry `docker push` here once one
+            // exists (e.g. tag as mon-registre/futurekawa-backend:latest first).
+            when {
+                branch 'master'
+            }
+            steps {
+                sh 'docker build -t futurekawa-backend:latest ./backend'
+                sh 'docker build -t futurekawa-frontend:latest --target production ./frontend'
             }
         }
     }
