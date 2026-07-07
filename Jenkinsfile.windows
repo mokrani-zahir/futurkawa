@@ -14,6 +14,16 @@
 // `if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }` for exactly that reason;
 // don't drop it when editing.
 //
+// IMPORTANT — NativeCommandError false positives: the Jenkins `powershell`
+// step runs with $ErrorActionPreference = 'Stop'. On PowerShell 5.1 this
+// turns ANY stderr line written by a native process (docker compose build/up
+// progress output, npm warnings, etc. — none of which are actual failures)
+// into a terminating NativeCommandError that aborts the script before it
+// ever reaches the $LASTEXITCODE check below, even though the real exit code
+// was 0. Every block resets `$ErrorActionPreference = 'Continue'` first so
+// stderr output is just text again and the explicit $LASTEXITCODE checks are
+// what actually decide pass/fail — don't drop it when editing.
+//
 // Point `agent { label 'windows' }` at whatever your actual Windows node's
 // label is in Jenkins (Manage Jenkins > Nodes).
 //
@@ -61,6 +71,7 @@ pipeline {
                 // whole build, no matter what the entrypoint does at boot —
                 // so generate a real key upfront, before any container exists.
                 powershell '''
+                    $ErrorActionPreference = 'Continue'
                     if (-not (Test-Path .env)) { Copy-Item .env.example .env }
                     $envContent = Get-Content .env -Raw
                     if ($envContent -notmatch '(?m)^APP_KEY=base64:') {
@@ -77,6 +88,7 @@ pipeline {
         stage('Build images') {
             steps {
                 powershell '''
+                    $ErrorActionPreference = 'Continue'
                     docker compose build
                     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                 '''
@@ -90,15 +102,18 @@ pipeline {
                         // depends_on/healthcheck in docker-compose.yml already
                         // gates laravel on postgres being healthy.
                         powershell '''
+                            $ErrorActionPreference = 'Continue'
                             docker compose down -v --remove-orphans
                             exit 0
                         '''
 
                         powershell '''
+                            $ErrorActionPreference = 'Continue'
                             docker compose up -d postgres redis laravel frontend
                             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                         '''
                         powershell '''
+                            $ErrorActionPreference = 'Continue'
                             Write-Host "Waiting for the laravel container to finish booting (migrate + config:cache)..."
                             $ready = $false
                             for ($i = 0; $i -lt 30; $i++) {
@@ -118,6 +133,7 @@ pipeline {
                         // (backend's vendor/ isn't volume-mounted, so no equivalent
                         // step is needed there — composer deps live in the image.)
                         powershell '''
+                            $ErrorActionPreference = 'Continue'
                             docker compose exec -T frontend npm install
                             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                         '''
@@ -133,6 +149,7 @@ pipeline {
                                 // whether PHPStan found errors, so the stage still fails
                                 // the same way it did before.
                                 powershell '''
+                                    $ErrorActionPreference = 'Continue'
                                     docker compose exec -T laravel vendor/bin/phpstan analyse --no-progress --memory-limit=512M --error-format=checkstyle | Out-File -FilePath backend/phpstan-checkstyle.xml -Encoding utf8
                                     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                                 '''
@@ -141,6 +158,7 @@ pipeline {
                         stage('ESLint (frontend)') {
                             steps {
                                 powershell '''
+                                    $ErrorActionPreference = 'Continue'
                                     docker compose exec -T frontend npm run lint -- -f checkstyle -o eslint-checkstyle.xml
                                     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                                 '''
@@ -163,6 +181,7 @@ pipeline {
                 stage('Backend tests') {
                     steps {
                         powershell '''
+                            $ErrorActionPreference = 'Continue'
                             .\\backend\\run-tests.ps1 --log-junit=storage/logs/junit.xml
                             $testExitCode = $LASTEXITCODE
                             # storage/ is a named volume, not bind-mounted, so the report
@@ -179,6 +198,7 @@ pipeline {
                 stage('Frontend tests') {
                     steps {
                         powershell '''
+                            $ErrorActionPreference = 'Continue'
                             docker compose exec -T frontend npm test -- --reporter=junit --outputFile=junit.xml
                             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                         '''
@@ -194,7 +214,10 @@ pipeline {
                     // above (laravel, frontend:dev) — they're CI-only, not
                     // reused by the independent `docker build` in
                     // 'Build production images' further down.
-                    powershell 'docker compose down -v --rmi local'
+                    powershell '''
+                        $ErrorActionPreference = 'Continue'
+                        docker compose down -v --rmi local
+                    '''
                 }
             }
         }
@@ -226,10 +249,12 @@ pipeline {
             // }
             steps {
                 powershell '''
+                    $ErrorActionPreference = 'Continue'
                     docker build -t futurekawa-backend:latest ./backend
                     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                 '''
                 powershell '''
+                    $ErrorActionPreference = 'Continue'
                     docker build -t futurekawa-frontend:latest --target production ./frontend
                     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                 '''
