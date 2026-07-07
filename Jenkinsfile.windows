@@ -89,6 +89,8 @@ pipeline {
                     steps {
                         // depends_on/healthcheck in docker-compose.yml already
                         // gates laravel on postgres being healthy.
+                        powershell 'docker compose down -v --remove-orphans || true'
+
                         powershell '''
                             docker compose up -d postgres redis laravel frontend
                             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
