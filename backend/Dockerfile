@@ -15,6 +15,12 @@ RUN docker-php-ext-install \
     zip \
     bcmath
 
+# pcov fournit la couverture de code pour PHPUnit (utilisé par le pipeline CI)
+RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
+    && pecl install pcov \
+    && docker-php-ext-enable pcov \
+    && apk del .build-deps
+
 COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html

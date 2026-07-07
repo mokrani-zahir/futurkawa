@@ -1,6 +1,7 @@
 # Usage (from the repo root):
 #   .\backend\run-tests.ps1
 #   .\backend\run-tests.ps1 --filter=AlertServiceTest
+#   .\backend\run-tests.ps1 --log-junit=storage/logs/junit.xml --coverage-cobertura=storage/logs/cobertura.xml
 
 param(
     [Parameter(ValueFromRemainingArguments = $true)]
@@ -19,7 +20,7 @@ $envArgs = @(
 
 docker compose exec -T @envArgs laravel php artisan config:clear
 
-docker compose exec -T @envArgs laravel php artisan test @TestArgs
+docker compose exec -T @envArgs laravel vendor/bin/phpunit @TestArgs
 $testExitCode = $LASTEXITCODE
 
 docker compose exec -T laravel php artisan config:cache | Out-Null

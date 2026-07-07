@@ -17,6 +17,14 @@ backend/bootstrap/cache/*.php
 # Frontend (React/Vite)
 frontend/node_modules/
 frontend/dist/
+frontend/coverage/
+
+# CI artifacts (produced by Jenkinsfile.windows)
+backend/junit.xml
+backend/cobertura.xml
+backend/phpstan-checkstyle.xml
+frontend/junit.xml
+frontend/eslint-checkstyle.xml
 
 # Editor / OS
 .vscode/

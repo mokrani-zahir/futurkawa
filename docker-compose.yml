@@ -15,9 +15,6 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     volumes:
-      # Only our custom source files are bind-mounted on top of the image's
-      # full Laravel installation. artisan, vendor, public, etc. stay in the
-      # container filesystem (rebuilt with docker-compose build).
       - ./backend/app:/var/www/html/app
       - ./backend/database/migrations:/var/www/html/database/migrations
       - ./backend/database/seeders:/var/www/html/database/seeders
@@ -30,7 +27,6 @@ services:
       - ./backend/phpunit.xml:/var/www/html/phpunit.xml
       - ./backend/phpstan.neon:/var/www/html/phpstan.neon
       - ./backend/.env.testing:/var/www/html/.env.testing
-      # Persist logs and uploaded files across restarts
       - storage_data:/var/www/html/storage
     env_file:
       - .env
