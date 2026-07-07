@@ -19,6 +19,14 @@ param(
     [string[]]$TestArgs
 )
 
+# Native commands below (docker compose exec) write routine progress/warning
+# output to stderr; under $ErrorActionPreference = 'Stop' (Jenkins' default
+# for the powershell step) PowerShell 5.1 turns that into a terminating
+# NativeCommandError, aborting the script before $testExitCode is ever read —
+# even though the actual exit code was 0. Force 'Continue' so only the real
+# $LASTEXITCODE checks below decide pass/fail.
+$ErrorActionPreference = 'Continue'
+
 $envArgs = @(
     "-e", "APP_ENV=testing",
     "-e", "DB_DATABASE=futurekawa_test",
