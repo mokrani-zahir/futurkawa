@@ -1,42 +1,3 @@
-// CI/CD pipeline for FutureKawa — Windows agent variant.
-//
-// Same stages as the main Jenkinsfile, but every step uses `powershell`
-// instead of `sh` (Windows agents don't have bash), plus a few command
-// translations (no seq/test -f loops, no chmod, etc.).
-//
-// Prerequisites on the Jenkins agent: Windows + Docker Desktop (Docker
-// Compose v2 comes bundled) reachable from the account running the agent.
-//
-// IMPORTANT — PowerShell exit codes: unlike `sh`, the Jenkins `powershell`
-// step does NOT automatically fail the build when a native command (docker,
-// npm, ...) returns a non-zero exit code — only a terminating PowerShell
-// error does that. Every meaningful command below is followed by
-// `if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }` for exactly that reason;
-// don't drop it when editing.
-//
-// IMPORTANT — NativeCommandError false positives: the Jenkins `powershell`
-// step runs with $ErrorActionPreference = 'Stop'. On PowerShell 5.1 this
-// turns ANY stderr line written by a native process (docker compose build/up
-// progress output, npm warnings, etc. — none of which are actual failures)
-// into a terminating NativeCommandError that aborts the script before it
-// ever reaches the $LASTEXITCODE check below, even though the real exit code
-// was 0. Every block resets `$ErrorActionPreference = 'Continue'` first so
-// stderr output is just text again and the explicit $LASTEXITCODE checks are
-// what actually decide pass/fail — don't drop it when editing.
-//
-// Point `agent { label 'windows' }` at whatever your actual Windows node's
-// label is in Jenkins (Manage Jenkins > Nodes).
-//
-// Also builds futurekawa-backend:latest / futurekawa-frontend:latest at the
-// end (see 'Build production images' below) — the images consumed by
-// docker-compose.prod.yml. Local tags only for now; add a `docker push`
-// once a registry exists.
-//
-// Required Jenkins plugins for the reports produced below:
-//   - JUnit Plugin (bundled with modern Jenkins) — PHPUnit/Vitest results.
-//   - Warnings Next Generation Plugin — PHPStan/ESLint issues (phpStan()/esLint() parsers).
-//   - OWASP Dependency-Check Plugin — vulnerability trend graph.
-
 pipeline {
     agent any
 
@@ -52,26 +13,13 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // git branch: 'master', url: 'https://github.com/mokrani-zahir/futurkawa.git'
                 checkout scm
-                // Private repo? Add credentialsId: '<jenkins-credential-id>'
-                // (configure it under Manage Jenkins > Credentials first).
             }
         }
 
         stage('Prepare .env') {
             steps {
-                // CI only needs a working environment, not real secrets —
-                // .env.example's placeholder values are enough, EXCEPT
-                // APP_KEY: docker-compose bakes env_file values into every
-                // container's config at creation time, including for later
-                // `docker compose exec` sessions (used by the test stages
-                // below), which never re-run backend/docker-entrypoint.sh.
-                // Leaving APP_KEY blank here means it stays blank for the
-                // whole build, no matter what the entrypoint does at boot —
-                // so generate a real key upfront, before any container exists.
-                powershell '''
-                    $ErrorActionPreference = 'Continue'
+                ps '''
                     if (-not (Test-Path .env)) { Copy-Item .env.example .env }
                     $envContent = Get-Content .env -Raw
                     if ($envContent -notmatch '(?m)^APP_KEY=base64:') {
@@ -87,11 +35,7 @@ pipeline {
 
         stage('Build images') {
             steps {
-                powershell '''
-                    $ErrorActionPreference = 'Continue'
-                    docker compose build
-                    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-                '''
+                ps 'docker compose build'
             }
         }
 
@@ -99,22 +43,9 @@ pipeline {
             stages {
                 stage('Start stack') {
                     steps {
-                        // depends_on/healthcheck in docker-compose.yml already
-                        // gates laravel on postgres being healthy.
-                        powershell '''
-                            $ErrorActionPreference = 'Continue'
-                            docker compose down -v --remove-orphans
-                            exit 0
-                        '''
-
-                        powershell '''
-                            $ErrorActionPreference = 'Continue'
-                            docker compose up -d postgres redis laravel frontend
-                            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-                        '''
-                        powershell '''
-                            $ErrorActionPreference = 'Continue'
-                            Write-Host "Waiting for the laravel container to finish booting (migrate + config:cache)..."
+                        psIgnore 'docker compose down -v --remove-orphans'
+                        ps 'docker compose up -d postgres redis laravel frontend'
+                        ps '''
                             $ready = $false
                             for ($i = 0; $i -lt 30; $i++) {
                                 docker compose exec -T laravel test -f bootstrap/cache/config.php
@@ -122,21 +53,11 @@ pipeline {
                                 Start-Sleep -Seconds 2
                             }
                             if (-not $ready) {
-                                Write-Host "Timed out waiting for laravel to boot." -ForegroundColor Red
                                 docker compose logs laravel
                                 exit 1
                             }
-                            Write-Host "laravel ready."
                         '''
-                        // package.json changes between builds aren't picked up by
-                        // the named node_modules volume automatically — sync it.
-                        // (backend's vendor/ isn't volume-mounted, so no equivalent
-                        // step is needed there — composer deps live in the image.)
-                        powershell '''
-                            $ErrorActionPreference = 'Continue'
-                            docker compose exec -T frontend npm install
-                            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-                        '''
+                        ps 'docker compose exec -T frontend npm install'
                     }
                 }
 
@@ -144,24 +65,12 @@ pipeline {
                     parallel {
                         stage('PHPStan (backend)') {
                             steps {
-                                // checkstyle format feeds the Warnings Next Generation
-                                // plugin (see post block below). Exit code still reflects
-                                // whether PHPStan found errors, so the stage still fails
-                                // the same way it did before.
-                                powershell '''
-                                    $ErrorActionPreference = 'Continue'
-                                    docker compose exec -T laravel vendor/bin/phpstan analyse --no-progress --memory-limit=512M --error-format=checkstyle | Out-File -FilePath backend/phpstan-checkstyle.xml -Encoding utf8
-                                    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-                                '''
+                                ps 'docker compose exec -T laravel vendor/bin/phpstan analyse --no-progress --memory-limit=512M --error-format=checkstyle | Out-File -FilePath backend/phpstan-checkstyle.xml -Encoding utf8'
                             }
                         }
                         stage('ESLint (frontend)') {
                             steps {
-                                powershell '''
-                                    $ErrorActionPreference = 'Continue'
-                                    docker compose exec -T frontend npm run lint -- -f checkstyle -o eslint-checkstyle.xml
-                                    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-                                '''
+                                ps 'docker compose exec -T frontend npm run lint -- -f checkstyle -o eslint-checkstyle.xml'
                             }
                         }
                     }
@@ -180,15 +89,9 @@ pipeline {
 
                 stage('Backend tests') {
                     steps {
-                        powershell '''
-                            $ErrorActionPreference = 'Continue'
+                        ps '''
                             .\\backend\\run-tests.ps1 --log-junit=storage/logs/junit.xml
                             $testExitCode = $LASTEXITCODE
-                            # storage/ is a named volume, not bind-mounted, so the report
-                            # has to be pulled out of the container explicitly. Its own
-                            # exit code is deliberately ignored below: $testExitCode was
-                            # already captured, so a missing/failed copy can't mask a
-                            # test failure or fake a pass.
                             docker compose cp laravel:/var/www/html/storage/logs/junit.xml backend/junit.xml
                             exit $testExitCode
                         '''
@@ -197,67 +100,22 @@ pipeline {
 
                 stage('Frontend tests') {
                     steps {
-                        powershell '''
-                            $ErrorActionPreference = 'Continue'
-                            docker compose exec -T frontend npm test -- --reporter=junit --outputFile=junit.xml
-                            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-                        '''
+                        ps 'docker compose exec -T frontend npm test -- --reporter=junit --outputFile=junit.xml'
                     }
                 }
             }
             post {
                 always {
                     junit testResults: 'backend/junit.xml, frontend/junit.xml', allowEmptyResults: true
-                    // Ephemeral CI stack — always torn down, pass or fail, so
-                    // each build starts from a clean slate. --rmi local also
-                    // removes the images built by `docker compose build`
-                    // above (laravel, frontend:dev) — they're CI-only, not
-                    // reused by the independent `docker build` in
-                    // 'Build production images' further down.
-                    powershell '''
-                        $ErrorActionPreference = 'Continue'
-                        docker compose down -v --rmi local
-                    '''
+                    psIgnore 'docker compose down -v --rmi local'
                 }
             }
         }
 
-        // stage('Deploy (local)') {
-        //     when {
-        //         branch 'master'
-        //     }
-        //     steps {
-        //         // Stand-in for a real deploy target. Swap this step for a
-        //         // Terraform apply / Ansible playbook / kubectl rollout once
-        //         // real infrastructure exists.
-        //         // powershell '''
-        //         //     docker compose up -d --build
-        //         //     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-        //         // '''
-        //         powershell 'echo "Envoyer au terraform, ansible et k8s"'
-        //     }
-        // }
-
         stage('Build production images') {
-            // Builds the standalone images consumed by docker-compose.prod.yml
-            // (image: futurekawa-backend:latest / futurekawa-frontend:latest —
-            // no bind mounts, frontend pre-built and served by nginx). Local
-            // tags only for now; add a registry `docker push` here once one
-            // exists (e.g. tag as mon-registre/futurekawa-backend:latest first).
-            // when {
-            //     branch 'master'
-            // }
             steps {
-                powershell '''
-                    $ErrorActionPreference = 'Continue'
-                    docker build -t futurekawa-backend:latest ./backend
-                    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-                '''
-                powershell '''
-                    $ErrorActionPreference = 'Continue'
-                    docker build -t futurekawa-frontend:latest --target production ./frontend
-                    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-                '''
+                ps 'docker build -t futurekawa-backend:latest ./backend'
+                ps 'docker build -t futurekawa-frontend:latest --target production ./frontend'
             }
         }
     }
@@ -270,4 +128,25 @@ pipeline {
             echo 'Pipeline failed — see the failing stage log above.'
         }
     }
+}
+
+// PowerShell doesn't fail the Jenkins step on a non-zero native exit code by
+// itself, and $ErrorActionPreference = 'Stop' turns ordinary stderr noise
+// (docker/npm progress output) into a false failure — both are handled here
+// once instead of in every stage.
+def ps(String cmd) {
+    powershell """
+        \$ErrorActionPreference = 'Continue'
+        $cmd
+        if (\$LASTEXITCODE -ne 0) { exit \$LASTEXITCODE }
+    """
+}
+
+// Same as ps(), but for cleanup commands whose failure shouldn't fail the build.
+def psIgnore(String cmd) {
+    powershell """
+        \$ErrorActionPreference = 'Continue'
+        $cmd
+        exit 0
+    """
 }

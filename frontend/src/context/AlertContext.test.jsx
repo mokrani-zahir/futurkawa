@@ -68,7 +68,7 @@ describe('AlertContext', () => {
     expect(api.get).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
+      await vi.advanceTimersByTimeAsync(3_000);
     });
 
     expect(api.get).toHaveBeenCalledTimes(2);
