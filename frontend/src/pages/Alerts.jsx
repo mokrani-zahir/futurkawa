@@ -3,6 +3,7 @@ import { useApi } from '../hooks/useApi';
 import { useAlertContext } from '../context/AlertContext';
 import AlertItem from '../components/alerts/AlertItem';
 import api from '../services/api';
+import { resolveSensorAlert } from '../services/externalApi';
 
 export default function Alerts() {
   const [filter, setFilter]       = useState('unresolved'); // 'all' | 'unresolved' | 'resolved'
@@ -26,6 +27,18 @@ export default function Alerts() {
 
   const handleResolve = async (alert) => {
     await api.patch(`/alerts/${alert.id}/resolve`);
+
+    // Also mark the alert as verified on the remote zone API, so it stays
+    // in sync. Best-effort: local resolution already succeeded above.
+    if (alert.type === 'webhook' && alert.zone?.api_url && alert.sensor_name) {
+      try {
+        const { data: tokenData } = await api.get(`/zones/${alert.zone.id}/token`);
+        await resolveSensorAlert(alert.zone.api_url, tokenData.token, alert.sensor_name);
+      } catch {
+        // Ignore — the remote API may be unreachable or already up to date.
+      }
+    }
+
     markResolved(alert.id);
     reload();
     refreshGlobal();

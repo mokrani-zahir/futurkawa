@@ -40,6 +40,19 @@ export async function fetchAllSensors(apiUrl, token) {
 }
 
 /**
+ * Mark a sensor's alert as verified/resolved on the remote API.
+ * PATCH /api/v1/alert/{lot}
+ * Response: { status, nom }
+ */
+export async function resolveSensorAlert(apiUrl, token, sensorName) {
+  const base = apiUrl.replace(/\/+$/, '');
+  const res = await axios.patch(`${base}/api/v1/alert/${sensorName}`, null, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data;
+}
+
+/**
  * Update the alert thresholds (min / max) for a sensor.
  * PATCH /api/v1/{lot}?min=&max=
  * Response: { status, capteur, max, min }

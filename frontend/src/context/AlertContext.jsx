@@ -3,7 +3,7 @@ import api from '../services/api';
 
 const AlertContext = createContext(null);
 
-const POLL_INTERVAL_MS = 30_000;
+const POLL_INTERVAL_MS = 5_000;
 
 export function AlertProvider({ children }) {
   const [activeAlerts, setActiveAlerts] = useState([]);
