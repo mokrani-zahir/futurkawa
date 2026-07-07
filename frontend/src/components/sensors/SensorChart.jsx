@@ -75,6 +75,9 @@ export default function SensorChart({ zoneId, sensorName, zoneApiUrl, token }) {
   const [from, setFrom]           = useState(() => daysAgoStr(7));
   const [to, setTo]               = useState(nowStr);
 
+  const handleFromChange = (e) => setFrom(e.target.value);
+  const handleToChange   = (e) => setTo(e.target.value);
+
   // loadHistory receives explicit from/to to avoid stale-closure issues
   async function loadHistory(fromVal, toVal) {
     if (!zoneApiUrl || !token) return;
@@ -149,7 +152,7 @@ export default function SensorChart({ zoneId, sensorName, zoneApiUrl, token }) {
           <input
             type="datetime-local"
             value={from}
-            onChange={(e) => setFrom(e.target.value)}
+            onChange={handleFromChange}
             className="text-xs border border-slate-200 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
           />
         </div>
@@ -158,7 +161,7 @@ export default function SensorChart({ zoneId, sensorName, zoneApiUrl, token }) {
           <input
             type="datetime-local"
             value={to}
-            onChange={(e) => setTo(e.target.value)}
+            onChange={handleToChange}
             className="text-xs border border-slate-200 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
           />
         </div>

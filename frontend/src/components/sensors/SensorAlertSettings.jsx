@@ -27,6 +27,9 @@ export default function SensorAlertSettings({ zoneApiUrl, token, sensorName }) {
       .finally(() => setLoading(false));
   }, [zoneApiUrl, token, sensorName]);
 
+  const handleMinChange = (e) => setMin(e.target.value);
+  const handleMaxChange = (e) => setMax(e.target.value);
+
   async function handleSave(e) {
     e.preventDefault();
     setSaving(true);
@@ -64,7 +67,7 @@ export default function SensorAlertSettings({ zoneApiUrl, token, sensorName }) {
               type="number"
               step="any"
               value={min}
-              onChange={(e) => setMin(e.target.value)}
+              onChange={handleMinChange}
               placeholder="ex : 5"
               className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 pr-8 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
             />
@@ -82,7 +85,7 @@ export default function SensorAlertSettings({ zoneApiUrl, token, sensorName }) {
               type="number"
               step="any"
               value={max}
-              onChange={(e) => setMax(e.target.value)}
+              onChange={handleMaxChange}
               placeholder="ex : 30"
               className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 pr-8 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
             />

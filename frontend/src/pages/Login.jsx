@@ -10,6 +10,9 @@ export default function Login() {
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
 
+  const handleEmailChange    = (e) => setEmail(e.target.value);
+  const handlePasswordChange = (e) => setPassword(e.target.value);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -45,7 +48,7 @@ export default function Login() {
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={handleEmailChange}
               className="input"
               placeholder="admin@futurekawa.local"
               required
@@ -57,7 +60,7 @@ export default function Login() {
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={handlePasswordChange}
               className="input"
               placeholder="••••••••"
               required
